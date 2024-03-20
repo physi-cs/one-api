@@ -80,5 +80,6 @@
     "immutable": "^4.3.0",
     "prettier": "^2.8.7",
     "sass": "^1.53.0"
-  }
+  },
+  "fix-memory-limit": "cross-env LIMIT=2048 increase-memory-limit"
 }

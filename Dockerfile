@@ -7,10 +7,12 @@ COPY ./web .
 RUN npm install --save-dev increase-memory-limt
 
 WORKDIR /web/default
+RUN npm run fix-memory-limit
 RUN npm install
 RUN DISABLE_ESLINT_PLUGIN='true' REACT_APP_VERSION=$(cat VERSION) npm run build
 
 WORKDIR /web/berry
+RUN npm run fix-memory-limit
 RUN npm install
 RUN DISABLE_ESLINT_PLUGIN='true' REACT_APP_VERSION=$(cat VERSION) npm run build
 
