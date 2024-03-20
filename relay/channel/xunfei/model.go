@@ -11,7 +11,7 @@ type Message struct {
 
 type ChatRequest struct {
 	Header struct {
-		AppId string `json:"app_id"`
+		TraceId string `json:"traceId"`
 	} `json:"header"`
 	Parameter struct {
 		Chat struct {

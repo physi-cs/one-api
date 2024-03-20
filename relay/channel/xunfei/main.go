@@ -6,8 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,12 +14,15 @@ import (
 	"one-api/relay/constant"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 
 // https://console.xfyun.cn/services/cbm
 // https://www.xfyun.cn/doc/spark/Web.html
 
-func requestOpenAI2Xunfei(request openai.GeneralOpenAIRequest, xunfeiAppId string, domain string) *ChatRequest {
+func requestOpenAI2Xunfei(request openai.GeneralOpenAIRequest, xunfeiTraceId string, domain string) *ChatRequest {
 	messages := make([]Message, 0, len(request.Messages))
 	for _, message := range request.Messages {
 		if message.Role == "system" {
@@ -41,8 +42,8 @@ func requestOpenAI2Xunfei(request openai.GeneralOpenAIRequest, xunfeiAppId strin
 		}
 	}
 	xunfeiRequest := ChatRequest{}
-	xunfeiRequest.Header.AppId = xunfeiAppId
-	xunfeiRequest.Parameter.Chat.Domain = domain
+	xunfeiRequest.Header.TraceId = xunfeiTraceId
+	// xunfeiRequest.Parameter.Chat.Domain = domain
 	xunfeiRequest.Parameter.Chat.Temperature = request.Temperature
 	xunfeiRequest.Parameter.Chat.TopK = request.N
 	xunfeiRequest.Parameter.Chat.MaxTokens = request.MaxTokens
@@ -123,9 +124,9 @@ func buildXunfeiAuthUrl(hostUrl string, apiKey, apiSecret string) string {
 	return callUrl
 }
 
-func StreamHandler(c *gin.Context, textRequest openai.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string) (*openai.ErrorWithStatusCode, *openai.Usage) {
+func StreamHandler(c *gin.Context, textRequest openai.GeneralOpenAIRequest, traceId string, apiSecret string, apiKey string) (*openai.ErrorWithStatusCode, *openai.Usage) {
 	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret)
-	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
+	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, traceId)
 	if err != nil {
 		return openai.ErrorWrapper(err, "make xunfei request err", http.StatusInternalServerError), nil
 	}
@@ -153,9 +154,9 @@ func StreamHandler(c *gin.Context, textRequest openai.GeneralOpenAIRequest, appI
 	return nil, &usage
 }
 
-func Handler(c *gin.Context, textRequest openai.GeneralOpenAIRequest, appId string, apiSecret string, apiKey string) (*openai.ErrorWithStatusCode, *openai.Usage) {
+func Handler(c *gin.Context, textRequest openai.GeneralOpenAIRequest, traceId string, apiSecret string, apiKey string) (*openai.ErrorWithStatusCode, *openai.Usage) {
 	domain, authUrl := getXunfeiAuthUrl(c, apiKey, apiSecret)
-	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, appId)
+	dataChan, stopChan, err := xunfeiMakeRequest(textRequest, domain, authUrl, traceId)
 	if err != nil {
 		return openai.ErrorWrapper(err, "make xunfei request err", http.StatusInternalServerError), nil
 	}
@@ -195,7 +196,7 @@ func Handler(c *gin.Context, textRequest openai.GeneralOpenAIRequest, appId stri
 	return nil, &usage
 }
 
-func xunfeiMakeRequest(textRequest openai.GeneralOpenAIRequest, domain, authUrl, appId string) (chan ChatResponse, chan bool, error) {
+func xunfeiMakeRequest(textRequest openai.GeneralOpenAIRequest, domain, authUrl, traceId string) (chan ChatResponse, chan bool, error) {
 	d := websocket.Dialer{
 		HandshakeTimeout: 5 * time.Second,
 	}
@@ -203,7 +204,7 @@ func xunfeiMakeRequest(textRequest openai.GeneralOpenAIRequest, domain, authUrl,
 	if err != nil || resp.StatusCode != 101 {
 		return nil, nil, err
 	}
-	data := requestOpenAI2Xunfei(textRequest, appId, domain)
+	data := requestOpenAI2Xunfei(textRequest, traceId, domain)
 	err = conn.WriteJSON(data)
 	if err != nil {
 		return nil, nil, err
@@ -240,19 +241,24 @@ func xunfeiMakeRequest(textRequest openai.GeneralOpenAIRequest, domain, authUrl,
 }
 
 func getXunfeiAuthUrl(c *gin.Context, apiKey string, apiSecret string) (string, string) {
-	query := c.Request.URL.Query()
-	apiVersion := query.Get("api-version")
-	if apiVersion == "" {
-		apiVersion = c.GetString("api_version")
-	}
-	if apiVersion == "" {
-		apiVersion = "v1.1"
-		common.SysLog("api_version not found, use default: " + apiVersion)
-	}
-	domain := "general"
-	if apiVersion != "v1.1" {
-		domain += strings.Split(apiVersion, ".")[0]
-	}
-	authUrl := buildXunfeiAuthUrl(fmt.Sprintf("wss://spark-api.xf-yun.com/%s/chat", apiVersion), apiKey, apiSecret)
-	return domain, authUrl
+	// 原 app id| api secret | api key
+	// 现 traceId | authUrl | dummy
+
+	authUrl := apiKey
+	return "mock" , authUrl
+	// query := c.Request.URL.Query()
+	// apiVersion := query.Get("api-version")
+	// if apiVersion == "" {
+	// 	apiVersion = c.GetString("api_version")
+	// }
+	// if apiVersion == "" {
+	// 	apiVersion = "v1.1"
+	// 	common.SysLog("api_version not found, use default: " + apiVersion)
+	// }
+	// domain := "general"
+	// if apiVersion != "v1.1" {
+	// 	domain += strings.Split(apiVersion, ".")[0]
+	// }
+	// authUrl := buildXunfeiAuthUrl(fmt.Sprintf("wss://spark-api.xf-yun.com/%s/chat", apiVersion), apiKey, apiSecret)
+	// return domain, authUrl
 }
