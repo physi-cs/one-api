@@ -4,7 +4,7 @@ WORKDIR /web
 COPY ./VERSION .
 COPY ./web .
 
-RUN npm install --save-dev increase-memory-limit
+RUN npm install --save-dev increase-memory-limit cross-env
 
 WORKDIR /web/default
 RUN npm run fix-memory-limit
