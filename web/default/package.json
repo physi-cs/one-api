@@ -47,5 +47,6 @@
     "singleQuote": true,
     "jsxSingleQuote": true
   },
-  "proxy": "http://localhost:3000"
+  "proxy": "http://localhost:3000",
+  "fix-memory-limit": "cross-env LIMIT=2048 increase-memory-limit"
 }
